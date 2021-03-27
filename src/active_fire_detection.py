@@ -9,8 +9,8 @@ class ActiveFireIndex:
         self.algorithm = self.resolve_algorithm()
         print(self.algorithm)
 
-    def fit(self, img_stack : ImageStack):
-        return self.algorithm.fit(img_stack)
+    def fit(self, img_stack : ImageStack, **kwargs):
+        return self.algorithm.fit(img_stack, **kwargs)
 
     def resolve_algorithm(self):
         """Instanciate the aldorithm by name
@@ -36,6 +36,47 @@ class DellaglioAFD:
         b11 = img_stack.read(11)
 
         return generalized_normalized_difference_index(b12, b11)
+
+    def calculate_afd3(self, img_stack, img_stack_10m):
+        
+        b12 = img_stack.read(12)
+        b8 = img_stack.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b12, b8)
+
+    def calculate_afd4(self, img_stack, img_stack_10m):
+
+        b11 = img_stack.read(11)
+        b8 = img_stack.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b11, b8)
+
+class Dellaglio3AFD:
+
+    def fit(self, img_stack, img_stack_10m):
+        return self.calculate_afd3(img_stack, img_stack_10m)
+
+    def calculate_afd3(self, img_stack, img_stack_10m):
+        
+        b12 = img_stack.read(12)
+        b8 = img_stack_10m.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b12, b8)
+
+
+class Dellaglio4AFD:
+
+
+    def fit(self, img_stack, img_stack_10m):
+        return self.calculate_afd4(img_stack, img_stack_10m)
+
+    def calculate_afd4(self, img_stack, img_stack_10m):
+
+        b11 = img_stack.read(11)
+        b8 = img_stack_10m.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b11, b8)
+
 
 
 class LiangrocapartAFD:
