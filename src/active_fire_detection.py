@@ -9,85 +9,64 @@ class ActiveFireIndex:
         self.algorithm = self.resolve_algorithm()
         print(self.algorithm)
 
-    def fit(self, img_stack : ImageStack, **kwargs):
-        return self.algorithm.fit(img_stack, **kwargs)
+    def transform(self, img_stack : ImageStack, **kwargs):
+        return self.algorithm.transform(img_stack, **kwargs)
 
     def resolve_algorithm(self):
         """Instanciate the aldorithm by name
         """
 
         module = importlib.import_module('active_fire_detection', '.')
-        algorithm = getattr(module, '{}AFD'.format(self.method.capitalize()))
+        algorithm = getattr(module, '{}AFI'.format(self.method.capitalize()))
 
         return algorithm()
 
-class DellaglioAFD:
-    """Dell’aglio, D. A. G., Grambardella, C., Gargiulo, M., et al. (2020).
-    Dell’aglio, D. et al. test 5 different AFD. The AFD 1 and 2 are covered in the CicallaAFD.
-    The bests results are produced by Dell’aglio, D. et al. AFD5
+
+
+class BaselineAFI:
+
+    def transform(self, img_stack, **kwargs):
+        b12 = img_stack.read(12)
+        b8 = img_stack.read(8)
+
+        return generalized_normalized_difference_index(b12, b8)
+        
+
+class CicalaAFI:
+    """Cicala et al, 2018
+    DOI: 10.1109/EE1.2018.8385269
     """
 
-    def fit(self, img_stack : ImageStack):
-        return self.calculate_afd5(img_stack)
+    def transform(self, img_stack, **kwargs):
+        return self.cicala_afi3(img_stack, kwargs['alpha'])
 
-    def calculate_afd5(self, img_stack : ImageStack):
-        
+    def cicala_baseline_afi(self, img_stack : ImageStack):
+       
         b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
-
-        return generalized_normalized_difference_index(b12, b11)
-
-    def calculate_afd3(self, img_stack, img_stack_10m):
-        
-        b12 = img_stack.read(12)
-        b8 = img_stack.read_scaled(8, 0.5)
-
-        return generalized_normalized_difference_index(b12, b8)
-
-    def calculate_afd4(self, img_stack, img_stack_10m):
-
-        b11 = img_stack.read(11)
-        b8 = img_stack.read_scaled(8, 0.5)
-
-        return generalized_normalized_difference_index(b11, b8)
-
-class Dellaglio3AFD:
-
-    def fit(self, img_stack, img_stack_10m):
-        return self.calculate_afd3(img_stack, img_stack_10m)
-
-    def calculate_afd3(self, img_stack, img_stack_10m):
-        
-        b12 = img_stack.read(12)
-        b8 = img_stack_10m.read_scaled(8, 0.5)
+        b8 = img_stack.read(8)
 
         return generalized_normalized_difference_index(b12, b8)
 
 
-class Dellaglio4AFD:
-
-
-    def fit(self, img_stack, img_stack_10m):
-        return self.calculate_afd4(img_stack, img_stack_10m)
-
-    def calculate_afd4(self, img_stack, img_stack_10m):
-
+    def cicala_afi3(self, img_stack : ImageStack, alpha=0.5):
+        b12 = img_stack.read(12)
         b11 = img_stack.read(11)
-        b8 = img_stack_10m.read_scaled(8, 0.5)
+        b8 = img_stack.read(8)
 
-        return generalized_normalized_difference_index(b11, b8)
+        AFI_index = generalized_normalized_difference_index(b12, b8) + generalized_normalized_difference_index(b12, b11) + ( alpha * generalized_normalized_difference_index(b8, b11) )
+
+        return AFI_index
 
 
-
-class LiangrocapartAFD:
+class LiangrocapartAFI:
     """Liangrocapart et al, 2020
     DOI: 10.1109/ECTI-CON49241.2020.9158262
     """
 
-    def fit(self, img_stack : ImageStack):
-        return self.calculate_afd(img_stack)
+    def transform(self, img_stack, **kwargs):
+        return self.calculate_afi(img_stack)
 
-    def calculate_afd(self, img_stack : ImageStack):
+    def calculate_afi(self, img_stack):
         
         b12 = img_stack.read(12)
         b11 = img_stack.read(11)
@@ -130,40 +109,61 @@ class LiangrocapartAFD:
         return np.logical_and(rma, (ndi1 > -0.27))
 
 
-class CicalaAFD:
-    """Cicala et al, 2018
-    DOI: 10.1109/EE1.2018.8385269
+class DellaglioAFI:
+    """Dell’aglio, D. A. G., Grambardella, C., Gargiulo, M., et al. (2020).
+    Dell’aglio, D. et al. test 5 different AFI. The AFI 1 and 2 are covered in the CicallaAFI.
+    The bests results are produced by Dell’aglio, D. et al. AFI5
     """
 
-    def fit(self, img_stack : ImageStack, alpha=0.5):
-        return self.cicala_afd3(img_stack, alpha)
+    def transform(self, img_stack, **kwargs):
+        return self.calculate_afi5(img_stack)
 
-    def cicala_baseline_afd(self, img_stack : ImageStack):
-       
-        b12 = img_stack.read(12)
-        b8 = img_stack.read(8)
-
-        return generalized_normalized_difference_index(b12, b8)
-
-
-    def cicala_afd3(self, img_stack : ImageStack, alpha=0.5):
+    def calculate_afi5(self, img_stack : ImageStack):
+        
         b12 = img_stack.read(12)
         b11 = img_stack.read(11)
-        b8 = img_stack.read(8)
 
-        afd_index = generalized_normalized_difference_index(b12, b8) + generalized_normalized_difference_index(b12, b11) + ( alpha * generalized_normalized_difference_index(b8, b11) )
+        return generalized_normalized_difference_index(b12, b11)
 
-        return afd_index
-
-
-class BaselineAFD:
-
-    def fit(self, img_stack : ImageStack):
+    def calculate_afi3(self, img_stack, img_stack_10m):
+        
         b12 = img_stack.read(12)
-        b8 = img_stack.read(8)
+        b8 = img_stack.read_scaled(8, 0.5)
 
         return generalized_normalized_difference_index(b12, b8)
+
+    def calculate_afi4(self, img_stack, img_stack_10m):
+
+        b11 = img_stack.read(11)
+        b8 = img_stack.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b11, b8)
+
+class Dellaglio3AFI:
+
+    def transform(self, img_stack, **kwargs):
+        return self.calculate_afi3(img_stack, kwargs['img_stack_10m'])
+
+    def calculate_afi3(self, img_stack, img_stack_10m):
         
+        b12 = img_stack.read(12)
+        b8 = img_stack_10m.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b12, b8)
+
+
+class Dellaglio4AFI:
+
+
+    def transform(self, img_stack, **kwargs):
+        return self.calculate_afi4(img_stack, kwargs['img_stack_10m'])
+
+    def calculate_afi4(self, img_stack, img_stack_10m):
+
+        b11 = img_stack.read(11)
+        b8 = img_stack_10m.read_scaled(8, 0.5)
+
+        return generalized_normalized_difference_index(b11, b8)
 
 
 def generalized_normalized_difference_index(b1, b2):
