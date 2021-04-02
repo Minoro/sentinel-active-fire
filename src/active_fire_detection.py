@@ -26,8 +26,8 @@ class ActiveFireIndex:
 class BaselineAFI:
 
     def transform(self, img_stack, **kwargs):
-        b12 = img_stack.read(12)
-        b8 = img_stack.read(8)
+        b12 = img_stack.read_reflectance(12)
+        b8 = img_stack.read_reflectance('8A')
 
         return generalized_normalized_difference_index(b12, b8)
         
@@ -42,16 +42,16 @@ class CicalaAFI:
 
     def cicala_baseline_afi(self, img_stack : ImageStack):
        
-        b12 = img_stack.read(12)
-        b8 = img_stack.read(8)
+        b12 = img_stack.read_reflectance(12)
+        b8 = img_stack.read_reflectance('8A')
 
         return generalized_normalized_difference_index(b12, b8)
 
 
     def cicala_afi3(self, img_stack : ImageStack, alpha=0.5):
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
-        b8 = img_stack.read(8)
+        b12 = img_stack.read_reflectance(12)
+        b11 = img_stack.read_reflectance(11)
+        b8 = img_stack.read_reflectance('8A')
 
         AFI_index = generalized_normalized_difference_index(b12, b8) + generalized_normalized_difference_index(b12, b11) + ( alpha * generalized_normalized_difference_index(b8, b11) )
 
@@ -68,9 +68,9 @@ class LiangrocapartAFI:
 
     def calculate_afi(self, img_stack):
         
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
-        b8 = img_stack.read(8)
+        b12 = img_stack.read_reflectance(12)
+        b11 = img_stack.read_reflectance(11)
+        b8 = img_stack.read_reflectance('8A')
 
         ndi1 = normalized_difference_index(b11, b8)
         ndi2 = normalized_difference_index(b12, b11)
@@ -120,22 +120,22 @@ class DellaglioAFI:
 
     def calculate_afi5(self, img_stack : ImageStack):
         
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
+        b12 = img_stack.read_reflectance(12)
+        b11 = img_stack.read_reflectance(11)
 
         return generalized_normalized_difference_index(b12, b11)
 
     def calculate_afi3(self, img_stack, img_stack_10m):
         
-        b12 = img_stack.read(12)
-        b8 = img_stack.read_scaled(8, 0.5)
+        b12 = img_stack.read_reflectance(12)
+        b8 = img_stack.read_reflectance(8, scale=0.5)
 
         return generalized_normalized_difference_index(b12, b8)
 
     def calculate_afi4(self, img_stack, img_stack_10m):
 
-        b11 = img_stack.read(11)
-        b8 = img_stack.read_scaled(8, 0.5)
+        b11 = img_stack.read_reflectance(11)
+        b8 = img_stack.read_reflectance(8, scale=0.5)
 
         return generalized_normalized_difference_index(b11, b8)
 
@@ -146,8 +146,8 @@ class Dellaglio3AFI:
 
     def calculate_afi3(self, img_stack, img_stack_10m):
         
-        b12 = img_stack.read(12)
-        b8 = img_stack_10m.read_scaled(8, 0.5)
+        b12 = img_stack.read_reflectance(12)
+        b8 = img_stack_10m.read_reflectance(8, scale=0.5)
 
         return generalized_normalized_difference_index(b12, b8)
 
@@ -160,11 +160,36 @@ class Dellaglio4AFI:
 
     def calculate_afi4(self, img_stack, img_stack_10m):
 
-        b11 = img_stack.read(11)
-        b8 = img_stack_10m.read_scaled(8, 0.5)
+        b11 = img_stack.read_reflectance(11)
+        b8 = img_stack_10m.read_reflectance(8, scale=0.5)
 
         return generalized_normalized_difference_index(b11, b8)
 
+
+class SahmAFI:
+    """https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/active_fire_detection/script.js"""
+
+    def transform(self, img_stack, **kwargs):
+        b12 = img_stack.read_reflectance(12)
+        b11 = img_stack.read_reflectance(11)
+
+        afi = normalized_difference_index(b12, b11)
+
+        return np.logical_or(afi > 0.4, b12 > 1.0)
+
+
+class PierreMarkuseAFI:
+
+    def __init__(self):
+        self.sensitivity = 1.0
+
+    def transform(self, img_stack, **kwargs):
+        b12 = img_stack.read_reflectance(12)
+        b11 = img_stack.read_reflectance(11)
+
+        afi_zone2 = (b12 + b11) > (2.0 / self.sensitivity)
+
+        return afi_zone2
 
 def generalized_normalized_difference_index(b1, b2):
     """Compute de Generalized Normalized Difference Index, with is B1/B2

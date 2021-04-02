@@ -10,25 +10,29 @@ from glob import glob
 
 
 IMAGES_DIR = '../images/stack/'
+XML_FILE_PATH = '../xml/'
+
 IMAGE_NAME = 'T36RTU_20200829T083611_20m_stack.tif'
 image_path = os.path.join(IMAGES_DIR, IMAGE_NAME)
 
 
-# method = 'cicala'
-# output_path = os.path.join('../images/stack/', method)
+method = 'pierremarkuse'
+output_path = os.path.join('../images/stack/', method)
 
-# TH = 2.7
+TH = 2.7
 
-# ALPHA = 0.5
+ALPHA = 0.5
 
 # with rasterio.open(image_path) as src:
 
 #     img_stack = ImageStack(src)
 
-#     afd = ActiveFireIndex(method)
+#     # afd = ActiveFireIndex(method)
+#     # afd = SahmAFI()
+#     afd = PierreMarkuseAFI()
 
 #     if method == 'cicala':
-#         mask = afd.fit(img_stack, alpha=ALPHA)
+#         mask = afd.transform(img_stack, alpha=ALPHA)
 
 #     elif method == 'dellaglio3' or method == 'dellaglio4':
         
@@ -37,15 +41,15 @@ image_path = os.path.join(IMAGES_DIR, IMAGE_NAME)
         
 #         with rasterio.open(image_path_10m) as src_10m:
 #             img_stack_10m = ImageStack(src_10m)
-#             mask = afd.fit(img_stack, img_stack_10m=img_stack_10m)
+#             mask = afd.transform(img_stack, img_stack_10m=img_stack_10m)
 
 #     else:
-#         mask = afd.fit(img_stack)
+#         mask = afd.transform(img_stack)
 
 
 #     # O método já gera a imagem limiarizada
-#     if method != 'liangrocapart':
-#         mask = mask > TH
+#     # if method != 'liangrocapart' and method != 'sahm':
+#     #     mask = mask > TH
 
 #     if not os.path.exists(output_path):
 #         os.makedirs(output_path)
@@ -169,6 +173,9 @@ for image_path in images_20m_path:
             threshold = test_config['threshold']
 
             afi = ActiveFireIndex(method)
+
+            mtd_tl_xml = os.path.join(XML_FILE_PATH, image_path.replace('_20m_stack.tif', '_MTD_TL.xml'))
+            mtd_msil_xml = os.path.join(XML_FILE_PATH, image_path.replace('_20m_stack.tif', '_MTD_MSIL.xml'))
 
             img_stack = ImageStack(src)
 
