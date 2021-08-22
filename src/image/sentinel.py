@@ -2,6 +2,8 @@ import rasterio
 from rasterio.enums import Resampling
 import numpy as np
 import os
+import sys
+import cv2
 
 from utils.reflectance_conversion import get_image_metadata, get_radiance
 
@@ -55,27 +57,33 @@ class ImageStack:
         if mtd_tl_xml is not None and mtd_msil_xml is not None:
             self.xml_metadata = get_image_metadata(self.mtd_tl_xml, self.mtd_msil_xml)
 
+        self.masks = {}
+        for stack_band, image_band in self.map.items():
+            self.masks[stack_band] = self.dataset.read_masks(image_band)
+
     def read_raw(self, band):
         return self.dataset.read(self.map[band])
 
     def read(self, band):
-        return self.dataset.read(self.map[band], masked=True) / QUANTIFICATION_VALUE
+        return self.dataset.read(self.map[band]) / QUANTIFICATION_VALUE
 
     def read_scaled(self, band, scale=1.0, resampling = None):
         
         if resampling is None:
             resampling = Resampling.nearest
 
+        out_shape = (int(self.dataset.height * scale), int(self.dataset.width * scale))
         data = self.dataset.read(
             self.map[band],
-            masked=True,
             out_shape=(
                 1,
-                int(self.dataset.height * scale),
-                int(self.dataset.width * scale)
+                out_shape[0],
+                out_shape[1]
             ),
             resampling=resampling
         )
+
+        self.masks[band] = self.dataset.read_masks(self.map[band], out_shape=out_shape, resampling=resampling)
 
         if 'quantification_value' in self.xml_metadata:
             return data / self.xml_metadata['quantification_value']
@@ -110,6 +118,7 @@ class BufferedImageStack:
         self.buffer = {}
         self.metas = {}
         self.transform = None
+        self.masks = {}
 
     def load_band_from_stack(self, img_stack : ImageStack, band, scale = 1.0):
         """Load a specific band to memory. 
@@ -127,7 +136,9 @@ class BufferedImageStack:
     
         self.metas[band] = img_stack.meta
         self.buffer[band] = data
-        # self.masks[band] = ~data.mask
+        
+        # store the valid pixel max as boolean
+        self.masks[band] = (img_stack.masks[band] > 0)
 
     def read(self, band = None):
         """Read a band loaded in memory.
@@ -149,12 +160,13 @@ class BufferedImageStack:
 
     def read_mask(self, band = None):
         if band is not None:
-            mask = ~self.buffer[band].mask
+            mask = self.masks[band]
         else:
             first_band = next(iter(self.buffer))
             mask = np.ones(self.buffer[first_band].shape, dtype=bool)
             for b in self.buffer:
-                band_mask = ~self.buffer[b].mask 
+                band_mask = self.masks[b]
+                # cv2.imwrite('../mask_b{}.png'.format(b), (band_mask*255)) 
                 mask = mask & band_mask
 
         return mask
