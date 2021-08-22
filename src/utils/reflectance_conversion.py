@@ -10,16 +10,16 @@ import numpy as np
 
 XML_FILE_PATH = '../../xml/'
 
-def get_conversion_metadata(mtd_tl_xml, mtd_msil_xml):
+def get_image_metadata(mtd_tl_xml, mtd_msil_xml):
     tree = ET.parse(mtd_tl_xml)
-    incidence_angle = get_incidence_angle(tree)
+    incidence_angle = get_metadata_tl(tree)
 
     tree = ET.parse(mtd_msil_xml)
-    reflectance_conversion_data = get_reflectance_conversion_data(tree)
+    reflectance_conversion_data = get_metadata_msil(tree)
 
     return {**incidence_angle, **reflectance_conversion_data}
 
-def get_incidence_angle(xml_tree):
+def get_metadata_tl(xml_tree):
     root_xml = xml_tree.getroot()
     incidence_angle = {}
 
@@ -44,7 +44,7 @@ def get_incidence_angle(xml_tree):
 
     return incidence_angle
 
-def get_reflectance_conversion_data(xml_tree):
+def get_metadata_msil(xml_tree):
     root_xml = xml_tree.getroot()
 
     reflectance_conversion = {}
