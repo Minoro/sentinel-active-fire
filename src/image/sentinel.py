@@ -180,6 +180,15 @@ class BufferedImageStack:
             band_value = self.read(band)
             band_value = band_value*msk
             self.set_band(band, band_value)
+
+    def get_center_coord_band(self, band=None):
+        if band is None:
+            key = next(iter(self.metas))
+        else:
+            key = band
+        meta = self.metas[key]
+        return rasterio.transform.xy(meta['transform'], meta['height'] // 2, meta['width'] // 2)
+
             
 
 def load_buffered_stack_bands(image_dir, stack_partial_name, bands, spatial_resolution=20):

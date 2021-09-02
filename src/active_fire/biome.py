@@ -1,6 +1,34 @@
 import importlib
-from image.sentinel import BufferedImageStack, load_buffered_stack_bands
+from image.sentinel import ImageStack, BufferedImageStack, load_buffered_stack_bands
+from shapely.geometry import Point
 import rasterio
+import geopandas as gpd
+import os
+
+# Cache used to minimize IO
+DATAFRAME_BIOME_CACHE = {}
+
+BIOME_TO_AFD_MAP = {
+    'Tropical & Subtropical Moist Broadleaf Forests' : 'TropicalMoistForest',
+    'Tropical & Subtropical Dry Broadleaf Forests' : 'TropicalDryForest',
+    'Tropical & Subtropical Grasslands, Savannas & Shrublands' : 'Savanna',
+    'Mediterranean Forests, Woodlands & Scrub' : 'MediterraneanForest',
+    'Temperate Conifer Forests' : 'ConiferForest',
+    'Boreal Forests/Taiga' : 'Taiga',
+    'Deserts & Xeric Shrublands' : '',
+    'Temperate Broadleaf & Mixed Forests' : '',
+    'Boreal Forests/Taiga' : '',
+    'Deserts & Xeric Shrublands' : '',
+    'Temperate Broadleaf & Mixed Forests' : '',
+    'Tropical & Subtropical Grasslands, Savannas & Shrublands' : '',
+    'Temperate Broadleaf & Mixed Forests' : '',
+    'Temperate Grasslands, Savannas & Shrublands' : '',
+    'Tundra' : '',
+    'Montane Grasslands & Shrublands' : '',
+    'Flooded Grasslands & Savannas' : '',
+    'Mangroves' : '',
+    'Tropical & Subtropical Coniferous Forests' : '',
+}
 
 class BiomeAFD:
 
@@ -141,6 +169,56 @@ class TaigaAFD(BiomeAFD):
         c1 = super().criteria_1(b4, b12, 0.727, -0.11)
         return c1
 
+
+
+def resolve_biome_and_apply_afd(biome_shape_file, image_dir, stack_partial_name, biome_column_name='BIOME_NAME'):
+    """Find out the biome of the image based on the central pixel.
+    The biome shapefile with the biomes geometry will be stored in the memory, if the same file is read more than once, the memory copy will be used, reducing IO.
+    The images stack must be stored in the image_dir.
+
+    Args:
+        biome_shape_file (str): shape file with the biomes geometry
+        image_dir (str): path where the images stack are stored
+        stack_partial_name (str): name of the stack without the spatial resolution sufix
+        biome_column_name (str, optional): Column name where the biome name is stored. Defaults to 'BIOME_NAME'.
+
+    Returns:
+        tuple(np.array, BufferedStackImage): active fire mask and the buffer with the Sentinel bands  
+    """
+
+    bands = (4, 11, 12) 
+    buffered_stack = load_buffered_stack_bands(image_dir, stack_partial_name, bands)
+    buffered_stack.apply_valid_data_mask_to_stack()
+
+    # Load the geometries
+    if biome_shape_file in DATAFRAME_BIOME_CACHE:
+        # Load from cache
+        df = DATAFRAME_BIOME_CACHE[biome_shape_file].copy()
+    else:
+        df = gpd.read_file(biome_shape_file)
+        df = df.to_crs(buffered_stack.metas[12]['crs'])
+        # Remove invalid geometry
+        df = df[ df['geometry'].is_valid ].reset_index()
+        # Store in cache
+        DATAFRAME_BIOME_CACHE[biome_shape_file] = df.copy()
+    
+    center_point = Point(buffered_stack.get_center_coord_band())
+    biome = df[df.contains(center_point)][biome_column_name].iloc[0]
+
+    if len(biome) == 0 or biome not in BIOME_TO_AFD_MAP:
+        raise Exception('Biome not found in the shapefile')
+
+    if BIOME_TO_AFD_MAP[biome] == '':
+        raise Exception('There is no Active Fire Detection method defined for the biome')
+
+    # Load the method
+    module = importlib.import_module('active_fire.biome', '.')
+    algorithm = getattr(module, '{}AFD'.format(BIOME_TO_AFD_MAP[biome]))
+    algorithm = algorithm()
+
+    return algorithm.transform(buffered_stack), buffered_stack
+
+
 def apply_biome_afd(biome_name, image_dir, stack_partial_name):
     """Apply an biome method to segmentate Active Fire  in a Sentinel image.
     It will load the image channels from the stack and apply the specified method.
@@ -160,9 +238,6 @@ def apply_biome_afd(biome_name, image_dir, stack_partial_name):
     algorithm = algorithm()
 
     # Load the bands needed from the image stacks
-    # bands = (4, 12)
-    # if biome_name == 'TropicalMoistForest' or biome_name == 'MediterraneanForest':
-    #     bands = (4, 11, 12) 
     bands = (4, 11, 12) 
     buffered_stack = load_buffered_stack_bands(image_dir, stack_partial_name, bands)
     buffered_stack.apply_valid_data_mask_to_stack()
