@@ -18,7 +18,9 @@ STACK_20M_BANDS_MAP = {
     5: 1,
     6: 2,
     7: 3,
+    8: 4,
     '8A': 4,
+    '8a': 4,
     11: 5,
     12: 6,
 }
@@ -208,6 +210,8 @@ def load_buffered_stack_bands(image_dir, stack_partial_name, bands, spatial_reso
     assert spatial_resolution == 10 or spatial_resolution == 20 or spatial_resolution == 60
     
     buffered_stack = BufferedImageStack()
+
+    stack_partial_name = stack_partial_name.replace('.tif', '')
     stack_10m = os.path.join(image_dir, '{}_10m_stack.tif'.format(stack_partial_name))            
     stack_20m = os.path.join(image_dir, '{}_20m_stack.tif'.format(stack_partial_name))            
     stack_60m = os.path.join(image_dir, '{}_60m_stack.tif'.format(stack_partial_name))            
