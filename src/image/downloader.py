@@ -6,19 +6,8 @@ import ee
 import os
 import requests
 from datetime import datetime, timedelta  
-
-# Samples used by https://doi.org/10.1016/j.jag.2021.102347
-SAMPLES_PAPER_HU_BAN_NASCETTI = [
-    {'sample': 'A', 'date': '2018-09-28', 'roi': (114.777, -3.251)},
-    {'sample': 'B', 'date': '2019-08-21', 'roi': (-60.616, -15.624)},
-    {'sample': 'C', 'date': '2018-08-29', 'roi': (136.089, -15.676)},
-    {'sample': 'D', 'date': '2018-07-23', 'roi': (23.166, 38.010)},
-    {'sample': 'E', 'date': '2018-11-11', 'roi': (-121.390, 39.813)},
-    {'sample': 'F', 'date': '2018-10-25', 'roi': (22.431, -33.870)},
-    {'sample': 'G', 'date': '2018-08-08', 'roi': (-125.947, 53.846)},
-    {'sample': 'H', 'date': '2018-07-19', 'roi': (119.99, 65.47)},
-]
-
+import geopandas as gpd
+import sys
 
 class EarthEngineCollectionSearch:
 
@@ -89,6 +78,23 @@ class SentinelDownloader(EarthEngineCollectionSearch):
         self.base_url = 'https://storage.googleapis.com/gcp-public-data-sentinel-2/tiles'
 
 
+    def search_granule_id(self, granule_id : str):
+        self.collection = self.collection.filter(ee.Filter.eq('GRANULE_ID', granule_id))
+
+        return self
+
+    def search_tile_name(self, tile_name : str):
+        
+        tile_name = tile_name.upper()
+        # remove the 'T' (tile) notation
+        if tile_name.startswith('T'):
+            tile_name = tile_name[1:]
+
+        self.collection = self.collection.filter(ee.Filter.eq('MGRS_TILE', tile_name))
+
+        return self
+
+
     def get_granule_info(self):
         """Parse the granule information from Google Earth Engine search results.
 
@@ -107,7 +113,7 @@ class SentinelDownloader(EarthEngineCollectionSearch):
 
         return self.granule_info
 
-    def download_granules_to(self, granules, output_path):
+    def download_granules_to(self, granules, output_path, bands = ('B01','B02','B03','B04', 'B05','B06','B07','B08','B8A', 'B09','B10','B11','B12')):
         """Downloads a specific granule from Sentinel's image.
         Each band will be downloaded as a jp2 file.
         The granule information MUST have the product_id and the granule_id information.
@@ -116,6 +122,10 @@ class SentinelDownloader(EarthEngineCollectionSearch):
             granules (dict): granule information.
             output_path (str): directory to save the images.
         """
+
+        if bands is None:
+            bands = ('B01','B02','B03','B04', 'B05','B06','B07','B08','B8A', 'B09','B10','B11','B12')
+
         for granule in granules:
             
             granule_id = granule['granule_id']
@@ -126,10 +136,6 @@ class SentinelDownloader(EarthEngineCollectionSearch):
             product_parts = product_id.split('_')
             grid_info = product_parts[-2]
             image_prefix = '{}_{}'.format(grid_info, product_parts[2])
-
-            bands = ['B01','B02','B03','B04',
-                'B05','B06','B07','B08','B8A',
-                'B09','B10','B11','B12']
 
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
@@ -152,7 +158,7 @@ class SentinelDownloader(EarthEngineCollectionSearch):
     def download_granules_clouds_gml(self, granules, output_path):
 
         for granule in granules:
-            print(granule)
+            # print(granule)
             product_id = granule['product_id']
             product_parts = product_id.split('_')
             grid_info = product_parts[-2]
@@ -197,23 +203,37 @@ class SentinelDownloader(EarthEngineCollectionSearch):
 if __name__ == '__main__':
 
     downloader = SentinelDownloader()
-    for sample in SAMPLES_PAPER_HU_BAN_NASCETTI:
+    # for sample in SAMPLES_PAPER_HU_BAN_NASCETTI:
 
-        print('[INFO] Searching: {}'.format(sample['sample']))
-        start_date = datetime.strptime(sample['date'], '%Y-%m-%d')
-        end_date = start_date + timedelta(days=1)
+    #     print('[INFO] Searching: {}'.format(sample['sample']))
+    #     start_date = datetime.strptime(sample['date'], '%Y-%m-%d')
+    #     end_date = start_date + timedelta(days=1)
         
-        start_date = start_date.strftime("%Y-%m-%d")
-        end_date = end_date.strftime("%Y-%m-%d")
+    #     start_date = start_date.strftime("%Y-%m-%d")
+    #     end_date = end_date.strftime("%Y-%m-%d")
 
-        granules = downloader.search_dates(start_date, end_date) \
-            .search_point(sample['roi']) \
-            .get_granule_info()
+    #     granules = downloader.search_dates(start_date, end_date) \
+    #         .search_point(sample['roi']) \
+    #         .get_granule_info()
 
-        print('[INFO] Imagens encontradas: {}'.format(len(granules)))
-        downloader.download_granules_to(granules, '../../images/original')
-        downloader.download_granules_clouds_gml(granules, '../../images/qi_data/')
-        print('[INFO] Download concluido')
-        downloader.clear_search()
+    #     print('[INFO] Imagens encontradas: {}'.format(len(granules)))
+    #     downloader.download_granules_to(granules, '../../images/original')
+    #     downloader.download_granules_clouds_gml(granules, '../../images/qi_data/')
+    #     print('[INFO] Download concluido')
+    #     downloader.clear_search()
+
+
+    # start_date = '2020-08-01'
+    # end_date = '2020-08-31'
+    # print('[INFO] Searching: {}'.format(start_date))
+    # start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    # end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    # granules = downloader.search_tile_name('T53SNA') \
+    #             .search_dates(start_date, end_date) \
+    #             .get_granule_info()
+
+    # print('[INFO] Num. Found: {}'.format(len(granules)))
+    # print(granules)
+    
 
     print('Done!')
