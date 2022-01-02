@@ -142,6 +142,19 @@ class BufferedImageStack:
         # store the valid pixel max as boolean
         self.masks[band] = (img_stack.masks[band] > 0)
 
+    def load_file_as_band(self, image_path, band, use_raw=False):
+        
+        with rasterio.open(image_path) as src:
+            data = src.read(1)
+            meta = src.meta
+            self.masks[band] = src.read_masks(1)
+        
+        self.metas[band] = meta
+        self.buffer[band] = data
+        
+        if not use_raw:
+            self.buffer[band] = data / QUANTIFICATION_VALUE
+
     def read(self, band = None):
         """Read a band loaded in memory.
         If a the band is not informed (band=None), it will load all bands with cannels-last

@@ -3,6 +3,7 @@ from image.sentinel import BufferedImageStack
 import importlib
 import cv2
 from scipy import ndimage
+import joblib
 
 class ActiveFireIndex:
 
@@ -332,7 +333,23 @@ class YongxueAFI:
         return hta_pixels & false_alarm_control & valid_data_mask
 
 
+class MLActiveFire():
 
+    def __init__(self, model_path=None) -> None:
+        self.model_path = model_path
+        if model_path is not None:
+            self.model = joblib.load(self.model_path)
+
+    def load(self, model_path):
+        self.model_path = model_path
+        self.model = joblib.load(self.model_path)
+
+    def transform(self, buffered_stack):
+
+        mask = self.model.transform(buffered_stack)
+        valid_data_mask =  buffered_stack.read_mask()
+
+        return mask & valid_data_mask
 
 def generalized_normalized_difference_index(b1, b2):
     """Compute de Generalized Normalized Difference Index, with is B1/B2
