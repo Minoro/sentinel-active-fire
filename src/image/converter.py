@@ -4,6 +4,7 @@ import os
 import glob
 from osgeo import ogr
 import json
+import numpy as np
 import rasterio
 from rasterio.mask import mask
 from PIL import Image, ImageDraw
@@ -25,7 +26,8 @@ def jp2_to_tiff(file, output_path = None):
     dst_dataset = file.replace('.jp2', '.tif')
     
     if output_path is not None:
-        dst_dataset = os.path.join(output_path, dst_dataset)
+        file_name = os.path.basename(dst_dataset)
+        dst_dataset = os.path.join(output_path, file_name)
 
     if not os.path.exists(dst_dataset):
         try:
@@ -35,9 +37,7 @@ def jp2_to_tiff(file, output_path = None):
         except Exception as e:
             print(e)
 
-
-
-def build_stack(rootPath, output_path):
+def build_stacks(rootPath, output_path):
         
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -169,9 +169,16 @@ def get_gml_geometry(gml_file):
     return geometries
 
 
+def get_cloud_mask(gml_cloud_mask_path, mask_shape, transform):
+    cloud_geometry = get_gml_geometry(gml_cloud_mask_path)
+    cloud_mask = np.ones(mask_shape, dtype=np.bool)
+    if cloud_geometry is not None:
+        cloud_mask = rasterio.features.geometry_mask(cloud_geometry, mask_shape, transform)
 
-if __name__ == '__main__':
+    return cloud_mask
+
+# if __name__ == '__main__':
     # convert_dir_jp2_to_tiff(IMAGES_DIR)
-    build_stack(IMAGES_DIR, STACK_DIR)
+    # build_stack(IMAGES_DIR, STACK_DIR)
     # print(dir(gdal.Translate))
     # gml_to_geojson('../../images/tiles_50_M_KB_S2A_MSIL1C_20180928T022551_N0206_R046_T50MKB_20180928T060436.SAFE_GRANULE_L1C_T50MKB_A017060_20180928T024358_QI_DATA_MSK_CLOUDS_B00.gml', '')
