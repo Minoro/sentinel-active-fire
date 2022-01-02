@@ -12,6 +12,8 @@ GRID_FOLDER = '../../resources/sentinel_grid/'
 
 OUTPUT_FILE_NAME = 'sentinel_land_grid.geojson'
 
+IGNORE_CONTINENTS = ['Antarctica']
+
 
 '''
 Load the shapefile of the continents and the sentinel grid.
@@ -31,8 +33,13 @@ if __name__ == '__main__':
 
     for shapefile in shapefiles:
         gdf = gpd.read_file(shapefile)
-        print(f"Shapefile of {gdf.loc[0]['CONTINENT']}")
-
+        continent = gdf.loc[0]['CONTINENT']
+        print(f"Shapefile of {continent}")
+      
+        if continent in IGNORE_CONTINENTS:
+            print(f'Ignoring {continent}')
+            continue
+        
         for index, grid_row in tqdm(gdf_grid.iterrows()):
 
             # Check the intersection between the continent shape and the sentinel grid
@@ -42,7 +49,7 @@ if __name__ == '__main__':
                     grid_square_land.append({
                         'name': grid_row.Name,
                         'description': grid_row.Description,
-                        'continent': gdf.loc[0]['CONTINENT'],
+                        'continent': continent,
                         'geometry': grid_geometry
                     })
 
