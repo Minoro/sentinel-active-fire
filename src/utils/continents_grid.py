@@ -12,7 +12,7 @@ GRID_FOLDER = '../../resources/sentinel_grid/'
 
 OUTPUT_FILE_NAME = 'sentinel_land_grid.geojson'
 
-IGNORE_CONTINENTS = ['Antarctica']
+IGNORE_CONTINENTS = ['Antarctica', 'Continents']
 
 
 '''
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         if continent in IGNORE_CONTINENTS:
             print(f'Ignoring {continent}')
             continue
-        
+
         for index, grid_row in tqdm(gdf_grid.iterrows()):
 
             # Check the intersection between the continent shape and the sentinel grid
