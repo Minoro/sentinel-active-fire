@@ -13,12 +13,13 @@ from PIL import Image, ImageDraw
 IMAGES_DIR = "../../images/original/"
 STACK_DIR = '../../images/stack/'
 
-def convert_dir_jp2_to_tiff(input_dir, output_dir = None):
+def convert_dir_jp2_to_tiff(input_dir, output_dir = None, verbose=True):
     files = glob.glob(os.path.join(input_dir, '*.jp2'))
 
     num_files = len(files)
     for index, file in enumerate(files, start=1):
-        print('{}/{} - {}'.format(index, num_files, file))
+        if verbose:
+            print('{}/{} - {}'.format(index, num_files, file))
         jp2_to_tiff(file, output_dir)
 
 

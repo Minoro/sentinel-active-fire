@@ -21,11 +21,11 @@ OUTPUT_DIR = '../resources/images/output_txt'
 SAVE_AS_TXT = True
 
 ALGORITHMS = [
-    {'method': 'Baseline'},
-    {'method': 'Liangrocapart'},
-    {'method': 'Sahm'},
-    {'method': 'PierreMarkuse'},
-    {'method': 'Yongxue'},
+    {'method': 'Baseline'}, # P: : 0.005999406879034109  R:  0.7987444225381343  IoU:  0.005990351623328869  F-score:  0.01190936198078334
+    {'method': 'Liangrocapart'}, # P: : 0.902453531598513  R:  0.6297602988481893  IoU:  0.5896240163217721  F-score:  0.7418408507517418
+    {'method': 'Sahm'}, # P: : 0.09443004471312343  R:  0.6256615129189582  IoU:  0.08938021613127974  F-score:  0.16409370173564572
+    {'method': 'PierreMarkuse'}, # P: : 0.8566532258064516  R:  0.2204524229532012  IoU:  0.21260945709281961  F-score:  0.3506643558636626
+    {'method': 'Yongxue'}, #P: : 0.5469818459509181  R:  0.8175780844661201  IoU:  0.4874864655839134  F-score:  0.6554499511261775
     # {'method': 'Cicala'},
     # {'method': 'Dellaglio'},
 ]

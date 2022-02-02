@@ -51,7 +51,11 @@ class CicalaAFI:
 
 
     def transform(self, img_stack : BufferedImageStack, alpha=0.5, **kwargs):
-        return self.cicala_afi3(img_stack, alpha)
+        afi = self.cicala_afi3(img_stack, alpha)
+        
+        valid_data_mask =  img_stack.read_mask()
+
+        return afi & valid_data_mask
 
     def cicala_baseline_afi(self, img_stack : BufferedImageStack):
        
@@ -101,7 +105,9 @@ class LiangrocapartAFI:
         tcf = self.typical_crown_fire(b12, ndi1, ndi2)
         sma = self.smolder_area(b12, ndi1, ndi2)
 
-        return hcf | tcf | sma
+        valid_data_mask =  img_stack.read_mask()
+
+        return (hcf | tcf | sma) & valid_data_mask
 
     def high_temperature_crown_fire(self, b12, ndi1, ndi2, th=1.2):
 

@@ -144,11 +144,18 @@ class BufferedImageStack:
 
     def load_file_as_band(self, image_path, band, use_raw=False):
         
-        with rasterio.open(image_path) as src:
+        with rasterio.open(image_path, 'r+') as src:
             data = src.read(1)
             meta = src.meta
-            self.masks[band] = src.read_masks(1)
-        
+            if meta['nodata'] is None:
+                src.nodata = NO_DATA_VALUE
+                src.meta.update(nodata=NO_DATA_VALUE)
+                meta.update(nodata=NO_DATA_VALUE)
+                
+                self.masks[band] = (data != NO_DATA_VALUE)
+            else:
+                self.masks[band] = src.read_masks(1)
+            
         self.metas[band] = meta
         self.buffer[band] = data
         
