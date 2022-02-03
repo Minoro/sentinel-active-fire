@@ -16,7 +16,7 @@ from active_fire.general import ActiveFireIndex
 from image.sentinel import BufferedImageStack
 from image.converter import convert_dir_jp2_to_tiff, get_cloud_mask
 
-N_JOBS = 2
+N_JOBS = -2
 
 INPUT_CSV = '../../resources/s2_continent_202008_list_to_download.csv'
 
@@ -38,41 +38,41 @@ ACTIVE_FIRE_ALGORITHMS = [
 
 
 def check_fire_in_tile(tiff_path, cloud_path=None):
+    try:
 
-    # Load the bands to a buffer
-    bands_files = glob(os.path.join(tiff_path, '*.tif'))
-    img_buffer = BufferedImageStack()
-    for band_file in bands_files:
-        band = 12
-        if band_file.endswith('_B11.tif'):
-            band = 11
-        elif band_file.endswith('_B8A.tif'):
-            band = '8A'
+        # Load the bands to a buffer
+        bands_files = glob(os.path.join(tiff_path, '*.tif'))
+        img_buffer = BufferedImageStack()
+        for band_file in bands_files:
+            band = 12
+            if band_file.endswith('_B11.tif'):
+                band = 11
+            elif band_file.endswith('_B8A.tif'):
+                band = '8A'
+            
+            img_buffer.load_file_as_band(band_file, band)
+
+        image_shape = img_buffer.read(12).shape
+        cloud_mask = np.ones(image_shape, dtype=np.bool) 
         
-        img_buffer.load_file_as_band(band_file, band)
 
-    image_shape = img_buffer.read(12).shape
-    cloud_mask = np.ones(image_shape, dtype=np.bool) 
-    
-
-    if cloud_path is not None and os.path.exists(cloud_path):
-        cloud_mask = get_cloud_mask(cloud_path, image_shape, img_buffer.metas[12]['transform'])
-    
-    for algorithm in ACTIVE_FIRE_ALGORITHMS:
-        try:
+        if cloud_path is not None and os.path.exists(cloud_path):
+            cloud_mask = get_cloud_mask(cloud_path, image_shape, img_buffer.metas[12]['transform'])
+        
+        for algorithm in ACTIVE_FIRE_ALGORITHMS:
+            
             afi = ActiveFireIndex(algorithm['method'])
             mask = afi.transform(img_buffer)
             num_fire_pixels = (mask & cloud_mask).sum()
 
             # print('{} - Num. fire pixels: {}'.format(algorithm['method'], num_fire_pixels))
+            
+            return num_fire_pixels
 
-            if num_fire_pixels > 0:
-                return True
-        except Exception as e:
-            # Abort in case of error
-            return False
+    except Exception as e:
+        # Abort in case of error
+        return None
 
-    return False
 
 def download_mask_cloud(file):
 
@@ -132,6 +132,9 @@ def download_sentinel_bands(file, bands_to_download):
 
 
 def download_file(file):
+
+    fire_grid = []
+    
     tile_name = os.path.basename(file)
     log_file = os.path.join(LOG_PATH, '{}.log'.format(tile_name))
     
@@ -154,9 +157,18 @@ def download_file(file):
     # Download the cloud mask
     cloud_file = download_mask_cloud(file)
     download_path = download_sentinel_bands(file, CLASSIFICATION_BANDS)
+    if download_path is None:
+        with open(log_file, 'a+') as f:
+            f.write('ERROR')
+        return
+        
     convert_dir_jp2_to_tiff(download_path, tmp_dir, verbose=False)
         
-    has_fire = check_fire_in_tile(tmp_dir, cloud_path=cloud_file)
+    num_fire_pixels = check_fire_in_tile(tmp_dir, cloud_path=cloud_file)
+    if num_fire_pixels is None:
+        has_fire = False
+    else:
+        has_fire = (num_fire_pixels > 0)
 
     if has_fire:
         # Save 
@@ -165,31 +177,44 @@ def download_file(file):
         # Download the missing bands
         download_path = download_sentinel_bands(file, NON_CLASSIFICATION_BANDS)
         
+        if download_path is None:
+            with open(log_file, 'a+') as f:
+                f.write('ERROR')
+            return
+
         # Convert the bands to TIFF
         convert_dir_jp2_to_tiff(download_path, tmp_dir, verbose=False)
 
         # Move the downloaded files to the destination
         downloaded_files = glob(os.path.join(tmp_dir, '*.tif'))
         for downloaded_file in downloaded_files:
-            file_name = os.path.basename(downloaded_file)
-            shutil.move(downloaded_file, os.path.join(OUTPUT_PATH, file_name))
+            # Check before move, just in case
+            if os.path.exists(downloaded_file):
+                file_name = os.path.basename(downloaded_file)
+                shutil.move(downloaded_file, os.path.join(OUTPUT_PATH, file_name))
 
         with open(log_file, 'w+') as f:
-            f.write('FIRE')
+            f.write('FIRE {}'.format(num_fire_pixels))
 
     else:
-        # remove the cloud mask file
-        os.remove(cloud_file)
+        # Remove the cloud mask file
+        if os.path.exists(cloud_file):
+            os.remove(cloud_file)
         # Register that the image was processed
         with open(log_file, 'w+') as f:
-            f.write('NO-FIRE')
+            if has_fire is None:
+                f.write('ERROR')
+            else:
+                f.write('NO-FIRE')
 
     # Delete the temporary files
-    shutil.rmtree(download_path)
-
+    try:
+        if os.path.exists(download_path):
+            shutil.rmtree(download_path)
+    except:
+        pass
+        
 if __name__ == '__main__':
-    
-    fire_grid = []
 
     os.makedirs(DOWNLOAD_PATH, exist_ok=True)
     os.makedirs(OUTPUT_QI_DATA, exist_ok=True)
