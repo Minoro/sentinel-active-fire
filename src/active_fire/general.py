@@ -1,7 +1,6 @@
 import numpy as np
 from image.sentinel import BufferedImageStack
 import importlib
-import cv2
 from scipy import ndimage
 import joblib
 
@@ -90,10 +89,6 @@ class LiangrocapartAFI:
 
     def calculate_afi(self, img_stack):
         
-        # b12 = img_stack.read_radiance(12)
-        # b11 = img_stack.read_radiance(11)
-        # b8 = img_stack.read_radiance('8A')
-
         b12 = img_stack.read(12)
         b11 = img_stack.read(11)
         b8 = img_stack.read('8A')
@@ -105,34 +100,33 @@ class LiangrocapartAFI:
         tcf = self.typical_crown_fire(b12, ndi1, ndi2)
         sma = self.smolder_area(b12, ndi1, ndi2)
 
+        rma = self.remains_area(b12, ndi1, ndi2)
+
         valid_data_mask =  img_stack.read_mask()
 
-        return (hcf | tcf | sma) & valid_data_mask
+        return (hcf | tcf | sma ) & valid_data_mask
 
     def high_temperature_crown_fire(self, b12, ndi1, ndi2, th=1.2):
 
         hcf = b12 > th
-        positive_index = np.logical_and((ndi1 > 0), (ndi2 > 0))
-        ndi2_lt_ndi1 = (ndi2 < ndi1)
+        positive_index = (ndi1 > ndi2) > 0
 
-        return np.logical_and(np.logical_and(hcf, positive_index), ndi2_lt_ndi1)   
+        return np.logical_and(hcf, positive_index)   
 
     def typical_crown_fire(self, b12, ndi1, ndi2, th=1.0):
 
         tcf = b12 > th
-        ndi2_gt_ndi1 = (ndi2 > ndi1)
-
-        return np.logical_and(tcf, ndi2_gt_ndi1)
+        return tcf
 
 
-    def smolder_area(self, b12, ndi1, ndi2, lower_th=0.5, higher_th=1.0):
+    def smolder_area(self, b12, ndi1, ndi2, lower_th=0.8, higher_th=1.0):
 
         sma = np.logical_and(b12 >= lower_th, b12 <= higher_th)
         return np.logical_and(sma, (ndi2 > 0.2))
 
 
-    def remains_area(self, b12, ndi1, ndi2, th=0.5):
-
+    def remains_area(self, b12, ndi1, ndi2, th=0.8):
+        """NOTE: Not used by transform method"""
         rma = b12 < th
         return np.logical_and(rma, (ndi1 > -0.27))
 
@@ -339,7 +333,29 @@ class YongxueAFI:
         return hta_pixels & false_alarm_control & valid_data_mask
 
 
-class MLActiveFire():
+class KatoNakamuraAFI:
+
+    def transform(self, buffered_stack, **kwargs):
+        
+        b12 = buffered_stack.read(12)
+        b11 = buffered_stack.read(11)
+        b8 = buffered_stack.read('8A')
+
+        mask = generalized_normalized_difference_index(b12, b8) > 5
+        mask = (mask) & (b8 < 0.6) 
+
+        r = generalized_normalized_difference_index(b12, b8)
+
+
+        false_alarm_control = generalized_normalized_difference_index((b12 - b8),  (b11 - b8))
+        false_alarm_control = (1.65 < false_alarm_control) & (false_alarm_control < 33)
+
+        valid_data_mask = buffered_stack.read_mask()
+
+        return mask & false_alarm_control & valid_data_mask
+
+
+class MLActiveFire:
 
     def __init__(self, model_path=None) -> None:
         self.model_path = model_path
