@@ -3,6 +3,8 @@ from image.sentinel import BufferedImageStack
 import importlib
 from scipy import ndimage
 import joblib
+from utils import reflectance_conversion
+
 
 class ActiveFireIndex:
 
@@ -49,9 +51,9 @@ class CicalaAFI:
     #     self.threshold = threshold
 
 
-    def transform(self, img_stack : BufferedImageStack, alpha=0.5, **kwargs):
+    def transform(self, img_stack : BufferedImageStack, alpha=0.5, th=5.0, **kwargs):
         afi = self.cicala_afi3(img_stack, alpha)
-        
+        afi = afi > th
         valid_data_mask =  img_stack.read_mask()
 
         return afi & valid_data_mask
@@ -335,7 +337,7 @@ class YongxueAFI:
 
 class KatoNakamuraAFI:
 
-    def transform(self, buffered_stack, **kwargs):
+    def transform(self, buffered_stack, metadata, **kwargs):
         
         b12 = buffered_stack.read(12)
         b11 = buffered_stack.read(11)
@@ -344,8 +346,8 @@ class KatoNakamuraAFI:
         mask = generalized_normalized_difference_index(b12, b8) > 5
         mask = (mask) & (b8 < 0.6) 
 
-        r = generalized_normalized_difference_index(b12, b8)
-
+        l12 = reflectance_conversion.get_radiance(b12*metadata['quantification_value'], 12, metadata)
+        mask = mask & (l12 > 0.3)
 
         false_alarm_control = generalized_normalized_difference_index((b12 - b8),  (b11 - b8))
         false_alarm_control = (1.65 < false_alarm_control) & (false_alarm_control < 33)
