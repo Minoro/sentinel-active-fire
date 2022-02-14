@@ -37,5 +37,7 @@ if __name__ == '__main__':
         print('[INFO] Imagens encontradas: {}'.format(len(granules)))
         downloader.download_granules_to(granules, '../../images/original')
         downloader.download_granules_clouds_gml(granules, '../../images/qi_data/')
+        downloader.download_granules_metadata(granules, '../../images/metadata/')
+
         print('[INFO] Download concluido')
         downloader.clear_search()

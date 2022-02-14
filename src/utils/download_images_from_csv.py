@@ -1,6 +1,7 @@
 
 import sys
 
+
 sys.path.append('../')
 
 import os
@@ -16,13 +17,14 @@ from active_fire.general import ActiveFireIndex
 from image.sentinel import BufferedImageStack
 from image.converter import convert_dir_jp2_to_tiff, get_cloud_mask
 
-N_JOBS = -2
+N_JOBS = 2
 
 INPUT_CSV = '../../resources/s2_continent_202008_list_to_download.csv'
 
 DOWNLOAD_PATH = '../../resources/images/download/'
 OUTPUT_PATH = '../../resources/images/original/'
 OUTPUT_QI_DATA = '../../resources/images/qi_data/'
+OUTPUT_METADATA_PATH = '../../resources/images/metadata/'
 
 LOG_PATH = os.path.join(DOWNLOAD_PATH, 'log')
 
@@ -36,6 +38,8 @@ ACTIVE_FIRE_ALGORITHMS = [
     {'method': 'Liangrocapart'},
 ]
 
+
+FIRE_GRIDS = []
 
 def check_fire_in_tile(tiff_path, cloud_path=None):
     try:
@@ -92,11 +96,47 @@ def download_mask_cloud(file):
         return cloud_file
 
     except Exception as e:
-        log_file = os.path.join(LOG_PATH, '{}_MSK_CLOUDS_B00.log'.format(tile_name))
+        log_file = os.path.join(LOG_PATH, '{}_MSK_CLOUDS_B00.txt'.format(tile_name))
         with open(log_file, 'w+') as f:
             f.write(str(e))
 
     return None
+
+
+def download_metadata(file):
+    
+    try:
+        tile_name = os.path.basename(file)
+        
+        # Download the metadata file
+        metadata_url = file.replace('IMG_DATA/', '').replace(tile_name, 'MTD_TL.xml')
+
+        response = requests.get(metadata_url)
+        metadata_folder = os.path.join(OUTPUT_METADATA_PATH, tile_name)
+        os.makedirs(metadata_folder, exist_ok=True)
+
+        mtd_tl = os.path.join(metadata_folder, 'MTD_TL.xml') 
+        with open(mtd_tl, 'wb') as f:
+            f.write(response.content)
+    
+        metadata_url = os.path.join(file.split('GRANULE')[0], tile_name+'_MTD_MSIL1C.xml') 
+
+        response = requests.get(metadata_url)
+        mtd_msi = os.path.join(metadata_folder, tile_name+'_MTD_MSIL1C.xml') 
+        with open(mtd_msi, 'wb') as f:
+            f.write(response.content)
+
+    
+        return mtd_tl, mtd_msi
+
+    except Exception as e:
+        log_file = os.path.join(LOG_PATH, '{}_MTD.txt'.format(tile_name))
+        with open(log_file, 'w+') as f:
+            f.write(str(e))
+
+    return None
+
+
 
 
 def download_sentinel_bands(file, bands_to_download):
@@ -128,12 +168,10 @@ def download_sentinel_bands(file, bands_to_download):
         with open(log_file, 'w+') as f:
             f.write(str(e))
 
-    return None
+    return None, None
 
 
 def download_file(file):
-
-    fire_grid = []
     
     tile_name = os.path.basename(file)
     log_file = os.path.join(LOG_PATH, '{}.log'.format(tile_name))
@@ -143,10 +181,17 @@ def download_file(file):
 
     # Ignore if the tile has already been processed (log exists)
     if os.path.exists(log_file):
+        content = ''
+        with open(log_file) as f:
+            content = f.read()
+
+        # Save if it is a fire tile
+        if content.startswith('FIRE') or content.startswith('TILE-FIRE'):
+           FIRE_GRIDS.append(grid_name)
         return
     
     # Ignore if there are another image of the grid with fire
-    if grid_name in fire_grid:
+    if grid_name in FIRE_GRIDS:
         with open(log_file, 'w+') as f:
             f.write('TILE-FIRE')
         return
@@ -162,9 +207,11 @@ def download_file(file):
             f.write('ERROR')
         return
         
+    mtd_tl, mtd_msi = download_metadata(file)
     convert_dir_jp2_to_tiff(download_path, tmp_dir, verbose=False)
         
     num_fire_pixels = check_fire_in_tile(tmp_dir, cloud_path=cloud_file)
+
     if num_fire_pixels is None:
         has_fire = False
     else:
@@ -172,7 +219,7 @@ def download_file(file):
 
     if has_fire:
         # Save 
-        fire_grid.append(grid_name)
+        FIRE_GRIDS.append(grid_name)
 
         # Download the missing bands
         download_path = download_sentinel_bands(file, NON_CLASSIFICATION_BANDS)
@@ -200,6 +247,13 @@ def download_file(file):
         # Remove the cloud mask file
         if os.path.exists(cloud_file):
             os.remove(cloud_file)
+
+        if os.path.exists(mtd_tl):
+            os.remove(mtd_tl)
+
+        if os.path.exists(mtd_msi):
+            os.remove(mtd_msi)
+
         # Register that the image was processed
         with open(log_file, 'w+') as f:
             if has_fire is None:
