@@ -177,11 +177,37 @@ class SentinelDownloader(EarthEngineCollectionSearch):
             os.makedirs(output_path)
 
         output_file = os.path.join(output_path, qi_file)
-        response = requests.get(file_url)
+        self.download_url_to_file(file_url, output_file)
+
+
+    def download_granules_metadata(self, granules, output_path):
+        for granule in granules:
+            self.download_granule_metadata(granule, output_path)
+
+    def download_granule_metadata(self, granule, output_path):
+        safe_path = self.get_granule_safe_path(granule)
+
+        output_path = os.path.join(output_path, granule['granule_id'])
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        mtd_url = os.path.join(safe_path, 'MTD_MSIL1C.xml')
+        output_file = os.path.join(output_path, 'MTD_MSIL1C.xml')
+        self.download_url_to_file(mtd_url, output_file)
+
+        mtd_url = os.path.join(safe_path, 'GRANULE', granule['granule_id'], 'MTD_TL.xml')
+        output_file = os.path.join(output_path, 'MTD_TL.xml')
+        self.download_url_to_file(mtd_url, output_file)
+
+
+
+    def download_url_to_file(self, url, file):
+
+        response = requests.get(url)
         if response.status_code != 200:
-            raise Exception('[ERROR] Erro ao baixar banda: {}'.format(file_url))
+            raise Exception('[ERROR] Erro ao baixar arquivo: {}'.format(url))
             
-        with open(output_file, 'wb') as f:
+        with open(file, 'wb') as f:
             f.write(response.content)
 
 
