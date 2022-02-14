@@ -66,24 +66,25 @@ def get_metadata_msil(xml_tree):
     return reflectance_conversion
 
 
-def get_radiance(band_value, band, conversion_metadata):
+def get_radiance(band_value, band, metadata):
 
     # band_value = img_stack.read(band)
 
-    band_id = str(conversion_metadata['B' + str(band)])
+    band_id = str(metadata['B' + str(band)])
 
-    incidence_angle = math.radians(float(conversion_metadata['zenith_' + band_id]))
-    incidence_angle = math.cos(incidence_angle)
+    solar_angle_correction = math.radians(float(metadata['zenith_' + band_id]))
+    solar_angle_correction = math.cos(solar_angle_correction)
 
-    solar_irradiance = float(conversion_metadata['solar_irradiance_' + band_id])
+    solar_irradiance = float(metadata['solar_irradiance_' + band_id])
     
-    d2 = 1.0 / float(conversion_metadata['U'])
+    d2 = 1.0 / float(metadata['U'])
 
     quantification_value = 10000 # default value
-    if 'quantification_value' in conversion_metadata:
-        quantification_value = float(conversion_metadata['quantification_value'])
+    if 'quantification_value' in metadata:
+        quantification_value = float(metadata['quantification_value'])
 
-    radiance = ( (band_value * incidence_angle * solar_irradiance) / (math.pi * d2) ) / quantification_value
+    rtoa = band_value / quantification_value
+    radiance = (rtoa * solar_irradiance * solar_angle_correction ) / (math.pi * d2)
 
     return radiance
 
