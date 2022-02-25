@@ -1,3 +1,4 @@
+from image.sentinel import BufferedImageStack
 import rasterio
 import gdal
 import os
@@ -5,6 +6,7 @@ import glob
 from osgeo import ogr
 import json
 import numpy as np
+import math
 import rasterio
 from rasterio.mask import mask
 from PIL import Image, ImageDraw
@@ -177,6 +179,34 @@ def get_cloud_mask(gml_cloud_mask_path, mask_shape, transform):
         cloud_mask = rasterio.features.geometry_mask(cloud_geometry, mask_shape, transform)
 
     return cloud_mask
+
+
+def reflectance_to_radiance(img_stack, metadata):
+
+    buffered_image = BufferedImageStack()
+    for band in img_stack.buffer:
+
+        band_value = img_stack.read(band)
+        radiance = band_reflectance_to_radiance(band_value, band, metadata)
+        
+        buffered_image.set_band(band, radiance)
+    
+    return buffered_image
+
+def band_reflectance_to_radiance(band_value, band, metadata):
+
+    band_id = str(metadata['B' + str(band)])
+
+    solar_irradiance = float(metadata['solar_irradiance_' + band_id])
+    
+    solar_angle_correction = math.radians(float(metadata['zenith_' + band_id]))
+    solar_angle_correction = math.cos(solar_angle_correction)
+
+    d2 = 1.0 / float(metadata['U'])
+
+    radiance = (band_value * solar_irradiance * solar_angle_correction ) / (math.pi * d2)
+    
+    return radiance
 
 # if __name__ == '__main__':
     # convert_dir_jp2_to_tiff(IMAGES_DIR)

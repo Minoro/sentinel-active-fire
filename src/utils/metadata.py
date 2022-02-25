@@ -1,14 +1,4 @@
-# import sys
-# sys.path.append('../')
 import xml.etree.ElementTree as ET
-import os
-import rasterio
-import math
-import numpy as np
-
-# from image import ImageStack, ImageInMemory
-
-XML_FILE_PATH = '../../xml/'
 
 def get_image_metadata(mtd_tl_xml, mtd_msil_xml):
     tree = ET.parse(mtd_tl_xml)
@@ -27,8 +17,8 @@ def get_metadata_tl(xml_tree):
         incidence_angle['mean_zenith_angle'] = child.find('ZENITH_ANGLE').text
         incidence_angle['mean_zenith_angle_unit'] = child.find('ZENITH_ANGLE').attrib['unit']
 
-        incidence_angle['mean_zenith_angle'] = child.find('AZIMUTH_ANGLE').text
-        incidence_angle['mean_zenith_angle_unit'] = child.find('AZIMUTH_ANGLE').attrib['unit']
+        incidence_angle['mean_azimuth_angle'] = child.find('AZIMUTH_ANGLE').text
+        incidence_angle['mean_azimuth_angle_unit'] = child.find('AZIMUTH_ANGLE').attrib['unit']
 
     for child in root_xml.iter('Mean_Viewing_Incidence_Angle_List'):
         mean_viewing_incidence_angle = child.findall('Mean_Viewing_Incidence_Angle')
@@ -64,27 +54,3 @@ def get_metadata_msil(xml_tree):
         reflectance_conversion[child.attrib['physicalBand']] = child.attrib['bandId']
 
     return reflectance_conversion
-
-
-def get_radiance(band_value, band, metadata):
-
-    # band_value = img_stack.read(band)
-
-    band_id = str(metadata['B' + str(band)])
-
-    solar_irradiance = float(metadata['solar_irradiance_' + band_id])
-    
-    solar_angle_correction = math.radians(float(metadata['zenith_' + band_id]))
-    solar_angle_correction = math.cos(solar_angle_correction)
-
-    
-    d2 = 1.0 / float(metadata['U'])
-
-    quantification_value = 10000 # default value
-    if 'quantification_value' in metadata:
-        quantification_value = float(metadata['quantification_value'])
-
-    rtoa = band_value / quantification_value
-    radiance = (rtoa * solar_irradiance * solar_angle_correction ) / (math.pi * d2)
-    return radiance
-

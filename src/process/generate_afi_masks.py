@@ -1,22 +1,28 @@
 import sys
 
+from importlib_metadata import metadata
+
 sys.path.append('../')
 
 
 from image.sentinel import ImageStack, BufferedImageStack, load_buffered_stack_bands
 from image.converter import get_gml_geometry
 from active_fire.general import ActiveFireIndex
+from utils.reflectance_conversion import get_image_metadata
 
 from tqdm import tqdm
 import rasterio
 import os
 import numpy as np
+from glob import glob
 # import cv2
 
 IMAGES_STACK_DIR = '../../resources/images/stack'
 QI_DATA_DIR = '../../resources/images/images/qi_data'
 
-OUTPUT_DIR = '../resources/images/output_txt'
+OUTPUT_DIR = '../../resources/images/output_txt'
+# METADATA_DIR = '../resources/metadata'
+METADATA_DIR = '../../resources/Sentinel2/metadata'
 
 SAVE_AS_TXT = True
 
@@ -32,10 +38,27 @@ ALGORITHMS = [
 
 
 def get_stack_names():    
-    stacks = os.listdir(IMAGES_STACK_DIR)
-    names = [stack.replace('_10m_stack', '').replace('_20m_stack', '').replace('_60m_stack', '') for stack in stacks ]
+    # stacks = os.listdir(IMAGES_STACK_DIR)
+    # names = [stack.replace('_10m_stack', '').replace('_20m_stack', '').replace('_60m_stack', '') for stack in stacks ]
 
-    return list(set(names))
+    # return list(set(names))
+
+    stacks = os.listdir(IMAGES_STACK_DIR)
+    return stacks
+
+def get_metadata_file(stack_name):
+
+    stack_name_parts = stack_name.split('_')
+    tile_name = stack_name_parts[0] + '_' + stack_name_parts[1]
+    print(tile_name)
+
+    print(glob(os.path.join(METADATA_DIR, 'L1C_*', '*.xml'), recursive=True))
+    
+    print(os.path.join(METADATA_DIR,'L1C_{}_*_{}'.format(stack_name_parts[0], stack_name_parts[1]), '*.xml'))
+    metadata_file = glob(os.path.join(METADATA_DIR,'L1C_{}_*_{}'.format(stack_name_parts[0], stack_name_parts[1]), '*.xml'))
+
+    print(metadata_file)
+    sys.exit()
 
 def get_algorithms():
     algorithms = []
@@ -55,15 +78,28 @@ if __name__ == '__main__':
 
     for stack_name in tqdm(stack_names):
         
-        stack_name = stack_name.replace('.tif', '')
-        img_stack = load_buffered_stack_bands(IMAGES_STACK_DIR, stack_name, (12, 11, '8A'))
+        img_buffer = BufferedImageStack()
+
+        metadata = get_metadata_file(stack_name)
+        print(metadata)
+        sys.exit()
+
+        stack_path = os.path.join(IMAGES_STACK_DIR, stack_name)
+        with rasterio.open(stack_path) as dataset:
+            img_stack = ImageStack(dataset)
+            img_buffer.load_band_from_stack(img_stack, 12)
+            img_buffer.load_band_from_stack(img_stack, 11)
+            img_buffer.load_band_from_stack(img_stack, '8A')
+
+        
+
 
         for algorithm in algorithms:
             method = algorithm['method']
 
             afi = algorithm['afi']
             
-            mask = afi.transform(img_stack)
+            mask = afi.transform(img_buffer)
             
             output_dir = os.path.join(OUTPUT_DIR, method, stack_name)    
             os.makedirs(output_dir, exist_ok=True)

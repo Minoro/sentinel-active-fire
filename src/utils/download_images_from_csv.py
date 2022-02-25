@@ -134,7 +134,7 @@ def download_metadata(file):
         with open(log_file, 'w+') as f:
             f.write(str(e))
 
-    return None
+    return None, None
 
 
 
@@ -208,6 +208,11 @@ def download_file(file):
         return
         
     mtd_tl, mtd_msi = download_metadata(file)
+    if mtd_tl is None or mtd_msi is None:
+        with open(log_file, 'a+') as f:
+            f.write('ERROR')
+        return 
+
     convert_dir_jp2_to_tiff(download_path, tmp_dir, verbose=False)
         
     num_fire_pixels = check_fire_in_tile(tmp_dir, cloud_path=cloud_file)

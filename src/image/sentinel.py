@@ -3,8 +3,6 @@ from rasterio.enums import Resampling
 import numpy as np
 import os
 import sys
-import cv2
-
 from utils.reflectance_conversion import get_image_metadata, get_radiance
 
 STACK_10M_BANDS_MAP = {
