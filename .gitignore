@@ -165,3 +165,8 @@ Thumbs.db #thumbnail cache on Windows
 images/*
 resources/images/*
 xml/*
+resources/ecoregions/Ecoregions2017.shx
+resources/ecoregions/Ecoregions2017.prj
+resources/ecoregions/Ecoregions2017.shp
+resources/ecoregions/Ecoregions2017.dbf
+resources/Sentinel2/*
