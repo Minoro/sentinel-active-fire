@@ -2,6 +2,7 @@ import numpy as np
 from image.sentinel import BufferedImageStack
 import importlib
 from scipy import ndimage
+import cv2
 import joblib
 from image.converter import reflectance_to_radiance, band_reflectance_to_radiance
 
@@ -166,14 +167,12 @@ class YongxueAFI:
         # tai = (b12 - b11) / b8
         tai = generalized_normalized_difference_index((b12 - b11), b8)
 
-        # Step 1 - consider only non-zero values
+        # Step 1 - clip negative values
         tai_p = tai.copy()
         tai_p[ tai<0 ] = 0
 
         # Step 2 - compute the mean of tai_p in a 15x15 window 
-        kernel = np.ones((15,15)) 
-        kernel = kernel / kernel.size
-        tai_mean = ndimage.convolve(tai_p, weights=kernel) 
+        tai_mean = cv2.blur(tai_p, ksize=(15,15))
 
         # generate the initial segmentation mask
         segmentation = (tai_p - tai_mean) > 0.45
@@ -188,20 +187,19 @@ class YongxueAFI:
         # refine the detections
         hta_pixels = hta_pixels & ((b12 - b11) > (b11 - b8)) & (b12 > 0.15)
 
-        # Take in consideration only the satured pixels in a 8-pixel neighborhood of the previous identified pixels
+        # Take in consideration only the saturated pixels in a 8-pixel neighborhood of the previous identified pixels
         structure  = np.ones((3,3))
         buffer = ndimage.morphology.binary_dilation(hta_pixels, structure=structure)
         satured = (b12 >= 1) & (b11 >= 1)
         satured = buffer & satured
-
-        # Combine the privous detecion with the satured pixels
+        
+        # Combine the previous detecion with the satured pixels
         hta_pixels = hta_pixels | satured
 
         false_alarm_control = ~( (b11 <= 0.05) | (b8 <= 0.01) )
         valid_data_mask =  buffered_stack.read_mask()
 
         return hta_pixels & false_alarm_control & valid_data_mask
-
 
 class KatoNakamuraAFI:
 
@@ -225,23 +223,29 @@ class KatoNakamuraAFI:
         return mask & false_alarm_control & valid_data_mask
 
 
-class MLActiveFire:
+class MurphyAFI:
+    
 
-    def __init__(self, model_path=None) -> None:
-        self.model_path = model_path
-        if model_path is not None:
-            self.model = joblib.load(self.model_path)
+    def transform(self, buffered_stack, **kwargs):
+        
+        p7 = buffered_stack.read(12)
+        p6 = buffered_stack.read(11)
+        p5 = buffered_stack.read('8A')
+        
+        unamb_fires = ( generalized_normalized_difference_index(p7, p6) >= 1.4) & (generalized_normalized_difference_index(p7,p5) >= 1.4) & (p7 >= 0.15)
+        
+        if np.any (unamb_fires):
+            neighborhood = cv2.dilate(unamb_fires.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))).astype(unamb_fires.dtype)
 
-    def load(self, model_path):
-        self.model_path = model_path
-        self.model = joblib.load(self.model_path)
+            saturated = (buffered_stack.get_saturated_mask(12)) | (buffered_stack.get_saturated_mask(11))
+            potential_fires = (((generalized_normalized_difference_index(p6, p5) >= 2) & (p6 >= 0.5)) | saturated)
+            potential_fires = potential_fires & neighborhood
+            final_mask = (unamb_fires | potential_fires)
+        else:
+            final_mask = unamb_fires
 
-    def transform(self, buffered_stack):
+        return (final_mask.astype(np.bool))
 
-        mask = self.model.transform(buffered_stack)
-        valid_data_mask =  buffered_stack.read_mask()
-
-        return mask & valid_data_mask
 
 def generalized_normalized_difference_index(b1, b2):
     """Compute de Generalized Normalized Difference Index, with is B1/B2
