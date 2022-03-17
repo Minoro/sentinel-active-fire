@@ -209,7 +209,22 @@ class BufferedImageStack:
         meta = self.metas[key]
         return rasterio.transform.xy(meta['transform'], meta['height'] // 2, meta['width'] // 2)
 
-            
+    
+    def get_saturated_mask(self, band = None):
+        
+        # Adjust the saturation value
+        saturation_value = SATURATION_VALUE / QUANTIFICATION_VALUE
+        if band is not None:
+            mask = (self.buffer[band] == saturation_value)
+        else:
+            first_band = next(iter(self.buffer))
+            mask = np.ones(self.buffer[first_band].shape, dtype=bool)
+            for b in self.buffer:
+                band_mask = (self.buffer[b] == saturation_value) 
+                # cv2.imwrite('../mask_b{}.png'.format(b), (band_mask*255)) 
+                mask = mask & band_mask
+
+        return mask
 
 def load_buffered_stack_bands(image_dir, stack_partial_name, bands, spatial_resolution=20):
     """Load the bands from the image stacks. Each stack has all bands of a spacial resolution.
