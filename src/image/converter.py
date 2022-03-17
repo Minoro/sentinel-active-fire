@@ -1,16 +1,17 @@
-from image.sentinel import BufferedImageStack
 import rasterio
 import gdal
 import os
 import glob
 from osgeo import ogr
 import json
-import numpy as np
 import math
+import numpy as np
 import rasterio
 from rasterio.mask import mask
 from PIL import Image, ImageDraw
+import copy 
 
+from image.sentinel import BufferedImageStack
 
 IMAGES_DIR = "../../images/original/"
 STACK_DIR = '../../images/stack/'
@@ -165,9 +166,10 @@ def get_gml_geometry(gml_file):
         feature = layer.GetFeature(i)
         # yield json.loads(feature.ExportToJson())
         # print(feature.ExportToJson())
-        json_feature = json.loads(feature.ExportToJson())
-        # print(type(json_feature['geometry']))
-        geometries.append(json_feature['geometry'])
+        if feature is not None:
+            json_feature = json.loads(feature.ExportToJson())
+            # print(type(json_feature['geometry']))
+            geometries.append(json_feature['geometry'])
     
     return geometries
 
@@ -180,10 +182,9 @@ def get_cloud_mask(gml_cloud_mask_path, mask_shape, transform):
 
     return cloud_mask
 
-
 def reflectance_to_radiance(img_stack, metadata):
 
-    buffered_image = BufferedImageStack()
+    buffered_image = copy.deepcopy(img_stack)
     for band in img_stack.buffer:
 
         band_value = img_stack.read(band)
@@ -207,7 +208,6 @@ def band_reflectance_to_radiance(band_value, band, metadata):
     radiance = (band_value * solar_irradiance * solar_angle_correction ) / (math.pi * d2)
     
     return radiance
-
 # if __name__ == '__main__':
     # convert_dir_jp2_to_tiff(IMAGES_DIR)
     # build_stack(IMAGES_DIR, STACK_DIR)
