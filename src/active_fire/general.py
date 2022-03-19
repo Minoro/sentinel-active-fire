@@ -13,8 +13,8 @@ class ActiveFireIndex:
         self.algorithm = self.resolve_algorithm()
         # print(self.algorithm)
 
-    def transform(self, img_stack : BufferedImageStack, **kwargs):
-        return self.algorithm.transform(img_stack, **kwargs)
+    def transform(self, buffered_stack : BufferedImageStack, *args, **kwargs):
+        return self.algorithm.transform(buffered_stack, *args, **kwargs)
 
     def resolve_algorithm(self):
         """Instanciate the algorithm by name
@@ -35,29 +35,29 @@ class CicalaAFI:
     #     self.threshold = threshold
 
 
-    def transform(self, img_stack : BufferedImageStack, metadata, alpha=0.5, th=5.0, **kwargs):
+    def transform(self, buffered_stack : BufferedImageStack, metadata, alpha=0.5, th=5.0, **kwargs):
         # Transform the reflectance to radiance
-        img_stack = reflectance_to_radiance(img_stack, metadata)
+        buffered_stack = reflectance_to_radiance(buffered_stack, metadata)
         
-        afi = self.cicala_afi3(img_stack, alpha)
+        afi = self.cicala_afi3(buffered_stack, alpha)
         afi = afi > th
 
-        valid_data_mask =  img_stack.read_mask()
+        valid_data_mask =  buffered_stack.read_mask()
 
         return afi & valid_data_mask
 
-    def cicala_baseline_afi(self, img_stack : BufferedImageStack):
+    def cicala_baseline_afi(self, buffered_stack : BufferedImageStack):
        
-        b12 = img_stack.read(12)
-        b8 = img_stack.read('8A')
+        b12 = buffered_stack.read(12)
+        b8 = buffered_stack.read('8A')
             
         return generalized_normalized_difference_index(b12, b8) > 0.5
 
 
-    def cicala_afi3(self, img_stack : BufferedImageStack, alpha=0.001):
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
-        b8 = img_stack.read('8A')
+    def cicala_afi3(self, buffered_stack : BufferedImageStack, alpha=0.001):
+        b12 = buffered_stack.read(12)
+        b11 = buffered_stack.read(11)
+        b8 = buffered_stack.read('8A')
         
         t1 = generalized_normalized_difference_index(b12, b8)
         
@@ -74,14 +74,14 @@ class LiangrocapartAFI:
     DOI: 10.1109/ECTI-CON49241.2020.9158262
     """
 
-    def transform(self, img_stack, **kwargs):
-        return self.calculate_afi(img_stack)
+    def transform(self, buffered_stack, **kwargs):
+        return self.calculate_afi(buffered_stack)
 
-    def calculate_afi(self, img_stack):
+    def calculate_afi(self, buffered_stack):
         
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
-        b8 = img_stack.read('8A')
+        b12 = buffered_stack.read(12)
+        b11 = buffered_stack.read(11)
+        b8 = buffered_stack.read('8A')
 
         ndi1 = normalized_difference_index(b11, b8)
         ndi2 = normalized_difference_index(b12, b11)
@@ -92,7 +92,7 @@ class LiangrocapartAFI:
 
         rma = self.remains_area(b12, ndi1, ndi2)
 
-        valid_data_mask =  img_stack.read_mask()
+        valid_data_mask =  buffered_stack.read_mask()
 
         return (hcf | tcf | sma ) & valid_data_mask
 
@@ -141,17 +141,17 @@ class PierreMarkuseAFI:
     def __init__(self):
         self.sensitivity = 1.0
 
-    def transform(self, img_stack, **kwargs):
-        # b12 = img_stack.read_radiance(12)
-        # b11 = img_stack.read_radiance(11)
+    def transform(self, buffered_stack, **kwargs):
+        # b12 = buffered_stack.read_radiance(12)
+        # b11 = buffered_stack.read_radiance(11)
 
-        b12 = img_stack.read(12)
-        b11 = img_stack.read(11)
+        b12 = buffered_stack.read(12)
+        b11 = buffered_stack.read(11)
 
         afi_zone2 = (b12 + b11) > (2.0 / self.sensitivity)
 
 
-        valid_data_mask =  img_stack.read_mask()
+        valid_data_mask =  buffered_stack.read_mask()
         return afi_zone2 & valid_data_mask
 
 
@@ -204,7 +204,10 @@ class YongxueAFI:
 class KatoNakamuraAFI:
 
     def transform(self, buffered_stack, metadata, **kwargs):
-        
+
+        # if 'metadata' not in kwargs:
+        #     raise ValueError('The metadata argument must be informed')
+
         b12 = buffered_stack.read(12)
         b11 = buffered_stack.read(11)
         b8 = buffered_stack.read('8A')
